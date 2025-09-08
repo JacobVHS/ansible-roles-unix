@@ -1,8 +1,6 @@
 ---
 - name: Run Configuration Management Roles
   gather_facts: true
-  collections:
-    - jacobvhs.ansible_roles_unix
   hosts: localhost
   roles:
     - jacobvhs.ansible_roles_unix.linux_tmux
