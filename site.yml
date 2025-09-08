@@ -3,5 +3,5 @@
   gather_facts: true
   hosts: localhost
   roles:
-    - linux_tmux
-    - linux_zsh
+    - jacobvhs.ansible_roles_unix.linux_tmux
+    - jacobvhs.ansible_roles_unix.linux_zsh

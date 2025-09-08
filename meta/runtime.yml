@@ -1,7 +1,4 @@
 ---
-# runtime.yml
-# Ansible role runtime metadata
 
 dependencies: []
-
 requires_ansible: ">=2.9"
