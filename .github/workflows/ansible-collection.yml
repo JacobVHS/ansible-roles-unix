@@ -23,14 +23,22 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
     - name: Install Ansible
       run: |
         python -m pip install --upgrade pip
-        pip install ansible
+        pip install ansible ansible-lint
 
     - name: Validate collection structure
       run: |
@@ -39,20 +47,50 @@ jobs:
           exit 1
         fi
         echo "Collection structure validation passed"
+        
+        # Validate galaxy.yml syntax
+        python -c "import yaml; yaml.safe_load(open('galaxy.yml'))"
+        echo "galaxy.yml syntax validation passed"
 
-    - name: Build collection (dry run for PRs)
-      if: github.event_name == 'pull_request'
+    - name: Run ansible-lint
+      continue-on-error: true
+      run: |
+        if command -v ansible-lint >/dev/null 2>&1; then
+          ansible-lint . || echo "ansible-lint found issues (non-blocking)"
+        else
+          echo "ansible-lint not available, skipping"
+        fi
+
+    - name: Build collection
       run: |
         ansible-galaxy collection build . --force
-        echo "Build test completed successfully"
+        echo "Build completed successfully"
+        ls -la *.tar.gz
 
-    - name: Run collection sanity tests
-      if: github.event_name == 'pull_request'
+    - name: Install and test collection
       run: |
         # Install the built collection for testing
         ansible-galaxy collection install ./*.tar.gz --force
-        # Add any additional sanity tests here
-        echo "Sanity tests completed"
+        
+        # Basic import test
+        python -c "
+        try:
+            import ansible_collections
+            print('Collection import test passed')
+        except ImportError as e:
+            print(f'Collection import test failed: {e}')
+            exit(1)
+        "
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: collection-build-${{ github.run_id }}
+        path: |
+          *.tar.gz
+          *.log
+        retention-days: 7
 
   publish:
     needs: build-and-test
@@ -64,7 +102,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -72,6 +110,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install ansible
+
+    - name: Verify publish script exists
+      run: |
+        if [ ! -f ./build-and-publish.sh ]; then
+          echo "Error: build-and-publish.sh script not found"
+          exit 1
+        fi
 
     - name: Make script executable
       run: chmod +x ./build-and-publish.sh
@@ -81,11 +126,11 @@ jobs:
         ANSIBLE_GALAXY_TOKEN: ${{ secrets.ANSIBLE_GALAXY_TOKEN }}
       run: ./build-and-publish.sh
 
-    - name: Upload collection artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload publish artifacts
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: ansible-collection-logs
+        name: publish-logs-${{ github.run_id }}
         path: |
           *.log
           *.tar.gz
@@ -100,6 +145,19 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Download publish artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: publish-logs-${{ github.run_id }}
+        path: ./artifacts
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       env:
@@ -108,8 +166,22 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         body: |
-          Ansible Collection Release ${{ github.ref_name }}
+          # Ansible Collection Release ${{ github.ref_name }}
           
-          This release has been automatically published to Ansible Galaxy.
+          This release has been automatically built and published to Ansible Galaxy.
+          
+          ## Changes
+          - Version ${{ steps.version.outputs.version }}
+          - Built with Ansible ${{ env.ANSIBLE_VERSION }}
+          - Python ${{ env.PYTHON_VERSION }}
+          
+          ## Installation
+          ```bash
+          ansible-galaxy collection install namespace.collection_name:${{ steps.version.outputs.version }}
+          ```
+          
+          See the [Ansible Galaxy page](https://galaxy.ansible.com/) for more details.
         draft: false
         prerelease: false
+        files: |
+          ./artifacts/*.tar.gz
