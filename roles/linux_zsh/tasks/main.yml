@@ -1,0 +1,43 @@
+---
+
+- name: Install zsh on RedHat-based systems
+  ansible.builtin.dnf:
+    name: zsh
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Install zsh on Debian-based systems
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install zsh on Arch-based systems
+  community.general.pacman:
+    name: zsh
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == 'Archlinux'
+
+- name: Ensure zsh is the default shell for the user
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    shell: /bin/zsh
+  become: true
+
+- name: Ensure configuration directory exists
+  ansible.builtin.file:
+    path: /home/{{ ansible_user_id }}/.config/zsh
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_id }}"
+    mode: '0700'
+
+- name: Deploy zsh configuration file
+  ansible.builtin.template:
+    src: zshrc.j2
+    dest: /home/{{ ansible_user_id }}/.config/zsh/zshrc
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_id }}"
+    mode: '0644'

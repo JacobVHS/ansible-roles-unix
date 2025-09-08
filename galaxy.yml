@@ -1,0 +1,24 @@
+namespace: jacobvhs
+name: ansible_roles_unix
+version: 1.0.1
+readme: README.md
+authors:
+  - Jacob Schreuder <jacobdschreuder@gmail.com>
+description: Ansible roles for Unix systems
+license:
+  - GPL-3.0-or-later
+license_file: ''
+tags:
+  - ansible
+  - collection
+dependencies: {}
+repository: https://github.com/JacobVHS/ansible-roles-unix
+documentation: https://github.com/JacobVHS/ansible-roles-unix
+homepage: https://github.com/JacobVHS/ansible-roles-unix
+issues: https://github.com/JacobVHS/ansible-roles-unix/issues
+build_ignore:
+  - '*.pyc'
+  - '*.retry'
+  - '.git'
+  - '.gitignore'
+  - '.DS_Store'
