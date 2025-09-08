@@ -1,0 +1,32 @@
+---
+
+- name: Install tmux package
+  ansible.builtin.dnf:
+    name: tmux
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+  become: true
+
+- name: Install tmux package
+  ansible.builtin.apt:
+    name: tmux
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == 'Debian'
+  become: true
+
+- name: Ensure configuration directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config/tmux"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+
+- name: Deploy tmux configuration file
+  ansible.builtin.copy:
+    src: tmux.conf
+    dest: "{{ ansible_user_dir }}/.config/tmux/tmux.conf"
+    mode: '0644'
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"

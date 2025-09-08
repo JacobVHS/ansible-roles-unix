@@ -1,0 +1,7 @@
+---
+- name: Run Configuration Management Roles
+  gather_facts: true
+  hosts: localhost
+  roles:
+    - linux_tmux
+    - linux_zsh
